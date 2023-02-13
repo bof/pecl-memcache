@@ -382,7 +382,12 @@ PS_READ_FUNC(memcache)
 		} while (skip_servers.len < MEMCACHE_G(session_redundancy) && skip_servers.len < pool->num_servers && remainingtime > 0);
 
 		mmc_queue_free(&skip_servers);
-		zval_dtor(&dataresult);
+		// this line results sometimes, exact situation unclear,
+		// in assertion failure due to refcount being 0.
+		//
+		// Commenting it out to see how it fares...
+		//
+		// zval_dtor(&dataresult);
 
 		return SUCCESS;
 	}
