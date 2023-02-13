@@ -1,5 +1,5 @@
 --TEST--
-failed session locking test
+session locking test
 --SKIPIF--
 <?php include 'connect.inc'; if (!MEMCACHE_HAVE_SESSION) print 'skip not compiled with session support'; else if (!function_exists('pcntl_fork')) print 'skip not compiled with pcntl_fork() support'; ?>
 --FILE--
@@ -43,21 +43,23 @@ $t2 = microtime_float();
 printf("[%.06f] parent BEGIN\n", $t2 - $t1);
 session_id($key);
 session_start();
-$_SESSION['test']=true;
+$_SESSION['test']=1.0;
 $t2 = microtime_float();
-printf("[%.06f] parent %s\n", $t2 - $t1, session_str());
+printf("[%.06f] parent _SESSION %s\n", $t2 - $t1, session_str());
 session_write_close();
 
 $pid = pcntl_fork();
 if (!$pid) {
 	ob_clean();
 	ob_start();
+	$t2 = microtime_float();
 	printf("[%.06f] child BEGIN\n", $t2 - $t1);
 	usleep(250000);
 	session_id($key);
 	session_start();
+	$_SESSION['test']=2.0;
 	$t2 = microtime_float();
-	printf("[%.06f] child %s\n", $t2 - $t1, session_str());
+	printf("[%.06f] child _SESSION %s\n", $t2 - $t1, session_str());
 	session_write_close();
 	$t2 = microtime_float();
 	printf("[%.06f] child EXIT\n", $t2 - $t1);
@@ -65,13 +67,23 @@ if (!$pid) {
 	exit(0);
 }
 
+$t2 = microtime_float();
+printf("[%.06f] parent AFTER FORK\n", $t2 - $t1);
 session_id($key);
 session_start();
+$_SESSION['test']=1.1;
 $t2 = microtime_float();
-printf("[%.06f] parent %s\n", $t2 - $t1, session_str());
+printf("[%.06f] parent _SESSION %s\n", $t2 - $t1, session_str());
 usleep(4000000);
 $t2 = microtime_float();
 printf("[%.06f] parent RESUME\n", $t2 - $t1);
+session_write_close();
+$t2 = microtime_float();
+printf("[%.06f] parent ENCORE\n", $t2 - $t1);
+session_id($key);
+session_start();
+$t2 = microtime_float();
+printf("[%.06f] parent _SESSION %s\n", $t2 - $t1, session_str());
 session_write_close();
 $t2 = microtime_float();
 printf("[%.06f] parent EXIT\n", $t2 - $t1);
@@ -81,9 +93,13 @@ ob_flush();
 ?>
 --EXPECTF--
 [0.%f] child BEGIN
-[0.%f] child array ( )
+[0.%f] child _SESSION array (   'test' => 2.0, )
 [0.%f] child EXIT
 [0.%f] parent BEGIN
-[0.%f] parent array ( )
+[0.%f] parent _SESSION array (   'test' => 1.0, )
+[0.%f] parent AFTER FORK
+[0.%f] parent _SESSION array (   'test' => 1.1, )
 [4.%f] parent RESUME
+[4.%f] parent ENCORE
+[4.%f] parent _SESSION array (   'test' => 1.1, )
 [4.%f] parent EXIT
